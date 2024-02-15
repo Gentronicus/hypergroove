@@ -1,2 +1,3 @@
 # MY-AWESOME-FRIDAY-NIGHT
-my mod based on FNF-LOVE
+My awesome Fridaty Night Funkin' project based on the FNF-LOVE engine.
+Additional info TBA
