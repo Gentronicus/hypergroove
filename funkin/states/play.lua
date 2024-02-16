@@ -17,8 +17,9 @@ PlayState.controlDirs = {
 	note_right = 3
 }
 PlayState.ratings = {
-	{name = "sick", time = 45,        score = 350, splash = true,  mod = 1},
-	{name = "good", time = 90,        score = 200, splash = false, mod = 0.7},
+	{name = "sick", time = 20,        score = 500, splash = true,  mod = 1},
+	{name = "cool", time = 45,        score = 350, splash = true,  mod = 0.8},
+	{name = "good", time = 90,        score = 200, splash = false, mod = 0.6},
 	{name = "bad",  time = 135,       score = 100, splash = false, mod = 0.4},
 	{name = "shit", time = math.huge, score = 50,  splash = false, mod = 0.2}
 }
@@ -97,6 +98,8 @@ end
 function PlayState:enter()
 	if PlayState.SONG == nil then PlayState.loadSong("test") end
 	local songName = paths.formatToSongPath(PlayState.SONG.song)
+
+	self.skin = "metal"
 
 	PlayState.conductor = Conductor():setSong(PlayState.SONG)
 	PlayState.conductor.onStep = bind(self, self.step)
@@ -216,6 +219,7 @@ function PlayState:enter()
 
 	-- for ratings
 	self.sicks = 0
+	self.cools = 0
 	self.goods = 0
 	self.bads = 0
 	self.shits = 0
@@ -285,8 +289,32 @@ function PlayState:enter()
 		self.dad:setPosition(self.gf.x, self.gf.y)
 	end
 
+
 	self:add(self.stage.foreground)
 	self:add(self.judgeSprites)
+
+	if self.skin == "metal" then
+		self.ratingSprite = Sprite(0, 0, paths.getImage("skins/metal/ratingDummy"))
+		self.comboLabel = Sprite(0, 0, paths.getImage("skins/metal/comboLabel"))
+		self.comboLabel.scale = {x = 0.25, y = 0.25}
+
+		self.comboCountCanvas = love.graphics.newCanvas(1024, 256)
+		self.comboCountSprite = Sprite()
+		self.comboCountSprite.scale = {x = 0.25, y = 0.25}
+
+		self.judgeSprites:add(self.ratingSprite)
+		self.judgeSprites:add(self.comboLabel)
+		self.judgeSprites:add(self.comboCountSprite)
+
+		self:add(self.judgeSprites)
+
+		self.judgeSprites.visible = false
+
+		self.judgementTimer = Timer.new()
+		self.judgementScale = {value = 0.25, fade = 1, dummyValue = 1}
+
+
+	end
 
 	self.camFollow = {x = 0, y = 0}
 	self:cameraMovement()
@@ -422,6 +450,8 @@ function PlayState:enter()
 		self.healthBarBG, self.healthBar, self.iconP1, self.iconP2,
 		self.scoreTxt, self.timeArcBG, self.timeArc, self.timeTxt, self.botplayTxt
 	}) do o.cameras = {self.camHUD} end
+
+	if self.skin == "metal" then self.judgeSprites.cameras = {self.camHUD} end
 
 	self.lastTick = love.timer.getTime()
 
@@ -603,6 +633,27 @@ function PlayState:update(dt)
 
 	self.iconP1:setState((self.health < 0.2 and 2 or 1))
 	self.iconP2:setState((self.health > 1.8 and 2 or 1))
+
+	self.judgementTimer:update(dt)
+
+	self.ratingSprite.scale = {x = self.judgementScale.value, y = self.judgementScale.value * self.judgementScale.fade}
+	self.ratingSprite:updateHitbox()
+	self.ratingSprite.alpha, self.comboLabel.alpha, self.comboCountSprite.alpha = self.judgementScale.fade, self.judgementScale.fade, self.judgementScale.fade
+	-- print("JUDGMENT XPOS " .. tostring(self.ratingSprite.x) .. " YPOS " .. tostring(self.ratingSprite.y) .. " WIDTH " .. tostring(self.ratingSprite:getFrameWidth()) .. " HEIGHT " .. tostring(self.ratingSprite:getFrameHeight()) .. " SCALEX " .. tostring(self.ratingSprite.scale.x) .. " SCALEY " .. tostring(self.ratingSprite.scale.y))
+	self.comboLabel.scale = {x = 0.25, y = 0.25 * self.judgementScale.fade}
+	self.comboLabel:updateHitbox()
+	self.comboLabel.x = (self.ratingSprite.width - self.comboLabel.width) * 0.5
+	self.comboLabel.y = self.ratingSprite.height + self.ratingSprite.y
+	self.comboCountSprite:updateHitbox()
+	self.comboCountSprite.x = (self.ratingSprite.width - self.comboCountSprite.width) * 0.5
+	self.comboCountSprite.y = self.comboLabel.y + self.comboLabel.height
+	-- print("COMBOSEP XPOS " .. tostring(self.comboLabel.x) .. " YPOS " .. tostring(self.comboLabel.y) .. " WIDTH " .. tostring(self.comboLabel:getFrameWidth()) .. " HEIGHT " .. tostring(self.comboLabel:getFrameHeight()) .. " SCALEX " .. tostring(self.comboLabel.scale.x) .. " SCALEY " .. tostring(self.comboLabel.scale.y))
+	-- print(self.judgementScale.value)
+
+	self.judgeSprites:updateHitbox()
+	self.judgeSprites.x = game.width * 0.75 - self.ratingSprite.width * 0.5
+	if self.middleScroll then self.judgeSprites.x = (game.width - self.judgeSprites.width) * 0.5 end
+	self.judgeSprites.y = (game.height - self.judgeSprites.height) * 0.5
 
 	-- time arc / text
 	local songTime = PlayState.conductor.time / 1000
@@ -1324,114 +1375,75 @@ function PlayState:section(s)
 end
 
 function PlayState:popUpScore(rating)
-	local accel = PlayState.conductor.crotchet * 0.001 / self.playback
 
-	local antialias = not PlayState.pixelStage
-	local uiStage = PlayState.pixelStage and "pixel" or "normal"
+	if rating == nil then rating = "miss" end
 
-	local event = self.scripts:event('onPopUpScore', Events.PopUpScore())
-	if not event.cancelled then
-		local judgeSpr = self.judgeSprites:recycle()
+	local comboStr = string.format(math.abs(self.combo))
+	if self.combo >=10000 then combostr = "9999" end
 
-		if rating == nil then rating = "shit" end
-		judgeSpr:loadTexture(paths.getImage("skins/" .. uiStage .. "/" ..
-			rating))
-		judgeSpr.alpha = 1
-		judgeSpr:setGraphicSize(math.floor(judgeSpr.width *
-			(PlayState.pixelStage and 4.7 or 0.7)))
-		judgeSpr:updateHitbox()
-		judgeSpr:screenCenter()
-		judgeSpr.moves = true
-		-- use fixed values to display at the same position on a different resolution
-		judgeSpr.x = (1280 - judgeSpr.width) * 0.5 + 190
-		judgeSpr.y = (720 - judgeSpr.height) * 0.5 - 60
-		judgeSpr.velocity.x = 0
-		judgeSpr.velocity.y = 0
-		judgeSpr.alpha = 1
-		if self.combo <= 0 then judgeSpr.alpha = 0 end
-		judgeSpr.antialiasing = antialias
+	self.judgeSprites.visible = true
 
-		judgeSpr.acceleration.y = 550
-		judgeSpr.velocity.y = judgeSpr.velocity.y - math.random(140, 175)
-		judgeSpr.velocity.x = judgeSpr.velocity.x - math.random(0, 10)
-		judgeSpr.visible = not event.hideRating
+	self.ratingSprite.visible = true
+	self.ratingSprite.alpha = 1
+	self.comboLabel.visible = false
+	self.comboLabel.alpha = 1
+	self.comboCountSprite.visible = false
+	self.comboCountSprite.alpha = 1
 
-		Timer.after(accel, function()
-			Timer.tween(0.2 / self.playback, judgeSpr, {alpha = 0}, "linear", function()
-				Timer.cancelTweensOf(judgeSpr)
-				judgeSpr:kill()
+	self.comboLabel.color = {100,100,100}
+	self.comboCountSprite.color = {100,100,100}
+	self.judgementTimer:clear()
+	self.ratingSprite:loadTexture(paths.getImage("skins/" .. "metal/" .. "rating" .. rating:gsub("^%l", string.upper)))
+	self.ratingSprite:updateHitbox()
+
+	self.judgementScale = {value = 0.375, fade = 1, dummyValue = 1}
+	self.judgementTimer:tween(0.08, self.judgementScale, {value = 0.25}, 'linear', function()
+		self.judgementTimer:tween(0.92, self.judgementScale, {dummyValue = 2}, 'linear', function()
+			self.judgementTimer:tween(0.25, self.judgementScale, {fade = 0.01}, 'linear', function()
+				self.judgeSprites.visible = false
 			end)
 		end)
+	end)
 
-		local comboSpr = self.judgeSprites:recycle()
-		comboSpr:loadTexture(paths.getImage("skins/" .. uiStage .. "/combo"))
-		comboSpr.alpha = 1
-		comboSpr:setGraphicSize(math.floor(comboSpr.width *
-			(PlayState.pixelStage and 4.2 or 0.6)))
-		comboSpr:updateHitbox()
-		comboSpr:screenCenter()
-		comboSpr.moves = true
-		-- use fixed values to display at the same position on a different resolution
-		comboSpr.x = (1280 - comboSpr.width) * 0.5 + 250
-		comboSpr.y = (720 - comboSpr.height) * 0.5
-		comboSpr.velocity.x = 0
-		comboSpr.velocity.y = 0
-		comboSpr.alpha = 1
-		if self.combo <= 9 then comboSpr.alpha = 0 end
-		comboSpr.antialiasing = antialias
+	local digitX = 0
 
-		comboSpr.acceleration.y = 600
-		comboSpr.velocity.y = comboSpr.velocity.y - 150
-		comboSpr.velocity.x = comboSpr.velocity.x + math.random(1, 10)
-		comboSpr.visible = not event.hideCombo
+	self.comboCountCanvas:renderTo(function()	
+		love.graphics.clear()
+	end)
 
-		Timer.after(accel, function()
-			Timer.tween(0.2 / self.playback, comboSpr, {alpha = 0}, "linear", function()
-				Timer.cancelTweensOf(comboSpr)
-				comboSpr:kill()
-			end)
-		end)
-
-		local lastSpr
-		local coolX, comboStr = 1280 * 0.55, string.format("%03d", self.combo)
-		if self.combo < 0 then comboStr = string.format("-%03d", math.abs(self.combo)) end
-		for i = 1, #comboStr do
-			if self.combo >= 10 or self.combo <= 0 then
-				local digit = tostring(comboStr:sub(i, i)) or ""
-
-				if digit == "-" then digit = "negative" end
-
-				local numScore = self.judgeSprites:recycle()
-				numScore:loadTexture(paths.getImage(
-					"skins/" .. uiStage .. "/num" .. digit))
-				numScore:setGraphicSize(math.floor(numScore.width *
-					(PlayState.pixelStage and 4.5 or
-						0.5)))
-				numScore:updateHitbox()
-				numScore.moves = true
-				numScore.x = (lastSpr and lastSpr.x or coolX - 90) + numScore.width
-				numScore.y = judgeSpr.y + 115
-				numScore.velocity.y = 0
-				numScore.velocity.x = 0
-				numScore.alpha = 1
-				numScore.antialiasing = antialias
-
-				numScore.acceleration.y = math.random(200, 300)
-				numScore.velocity.y = numScore.velocity.y - math.random(140, 160)
-				numScore.velocity.x = math.random(-5.0, 5.0)
-				numScore.visible = not event.hideScore
-
-				Timer.after(accel * 2, function()
-					Timer.tween(0.2 / self.playback, numScore, {alpha = 0}, "linear", function()
-						Timer.cancelTweensOf(numScore)
-						numScore:kill()
-					end)
-				end)
-
-				lastSpr = numScore
-			end
-		end
+	-- find width of combo number sprites 
+	for i = 1, string.len(comboStr) do
+		local currentDigit = paths.getImage("skins/" .. "metal/" .. "digit" .. string.sub(comboStr, i, i))
+		digitX = digitX + currentDigit:getWidth()
+		-- print(digitX)
 	end
+
+	-- make canvas adjustable later maybe
+	digitX = math.floor(1024 * 0.5 - digitX * 0.5)
+
+	for i = 1, string.len(comboStr) do
+		local currentDigit = paths.getImage("skins/" .. "metal/" .. "digit" .. string.sub(comboStr, i, i))
+		self.comboCountCanvas:renderTo(function()
+			love.graphics.draw(currentDigit, digitX, 0)
+			-- print("I DRAW NUMBER AT " .. digitX)
+			digitX = digitX + currentDigit:getWidth()
+		end)
+	end
+
+	self.comboCountSprite:loadTexture(love.graphics.newImage(self.comboCountCanvas:newImageData()))
+	self.comboCountSprite:updateHitbox()
+	-- print(self.comboCountSprite.x .. ", " .. self.comboCountSprite.y)
+
+	if self.combo <= -5 or self.combo >= 5 then
+		self.comboLabel.visible = true
+		self.comboCountSprite.visible = true
+	end
+
+	if self.combo <= -5 then
+		self.comboLabel.color = {100,0,0}
+		self.comboCountSprite.color = {100,0,0}
+	end
+
 end
 
 function PlayState:focus(f)
