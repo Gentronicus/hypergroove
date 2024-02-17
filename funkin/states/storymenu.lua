@@ -23,6 +23,7 @@ function StoryMenuState:enter()
 	self.selectedWeek = false
 
 	PlayState.storyMode = true
+	PlayState.round = 1
 
 	self.scoreText = Text(10, 10, "SCORE: 49324858",
 		paths.getFont('vcr.ttf', 36), {1, 1, 1}, 'right')

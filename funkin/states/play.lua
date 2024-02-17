@@ -17,12 +17,16 @@ PlayState.controlDirs = {
 	note_right = 3
 }
 PlayState.ratings = {
-	{name = "sick", time = 20,        score = 500, splash = true,  mod = 1},
-	{name = "cool", time = 45,        score = 350, splash = true,  mod = 0.8},
-	{name = "good", time = 90,        score = 200, splash = false, mod = 0.6},
-	{name = "bad",  time = 135,       score = 100, splash = false, mod = 0.4},
-	{name = "shit", time = math.huge, score = 50,  splash = false, mod = 0.2}
+	{name = "sick", time = 20,        score = 500, splash = true,  breaksCombo = false, health = 0.1,  mod = 1},
+	{name = "cool", time = 45,        score = 350, splash = true,  breaksCombo = false, health = 0.08,  mod = 0.8},
+	{name = "good", time = 90,        score = 200, splash = false, breaksCombo = false, health = 0.06,  mod = 0.6},
+	{name = "bad",  time = 135,       score = 100, splash = false, breaksCombo = true, health = 0,     mod = 0.4},
+	{name = "shit", time = math.huge, score = 50,  splash = false, breaksCombo = true, health = -0.1, mod = 0.2}
 }
+PlayState.noteOutOfBoundsTime = 350
+PlayState.comboHealThreshold = 7
+PlayState.missHurtAmount = 0.2
+
 PlayState.notePosition = 0
 
 PlayState.SONG = nil
@@ -799,7 +803,7 @@ function PlayState:update(dt)
 
 		self:updateNote(n)
 
-		if PlayState.notePosition > 350 / PlayState.SONG.speed + n.time then
+		if PlayState.notePosition > PlayState.noteOutOfBoundsTime / PlayState.SONG.speed + n.time then
 			if not n.ignoreNote and n.mustPress and not n.wasGoodHit and
 				(not n.isSustain or not n.parentNote.tooLate) then
 				if self.vocals then self.vocals:setVolume(0) end
@@ -820,7 +824,7 @@ function PlayState:update(dt)
 
 				if self.health < 0 then self.health = 0 end
 
-				self.health = self.health - 0.0475
+				self.health = self.health - PlayState.missHurtAmount
 				self.healthBar:setValue(self.health)
 
 				self.boyfriend:sing(n.data, "miss")
@@ -1187,12 +1191,12 @@ function PlayState:goodNoteHit(n)
 
 					if not n.ignoreNote then
 						if self.combo < 0 then self.combo = 0 end
-						self.combo = self.combo + 1
+						if not rating.breaksCombo then self.combo = self.combo + 1 else self.combo = 0 end
 						self.score = self.score + rating.score
 
 						if self.health > 2 then self.health = 2 end
 
-						self.health = self.health + 0.023
+						if self.combo > PlayState.comboHealThreshold then self.health = self.health + rating.health end
 						self.healthBar:setValue(self.health)
 					end
 
@@ -1434,7 +1438,7 @@ function PlayState:popUpScore(rating)
 	self.comboCountSprite:updateHitbox()
 	-- print(self.comboCountSprite.x .. ", " .. self.comboCountSprite.y)
 
-	if self.combo <= -5 or self.combo >= 5 then
+	if self.combo <= -5 or self.combo >= PlayState.comboHealThreshold then
 		self.comboLabel.visible = true
 		self.comboCountSprite.visible = true
 	end

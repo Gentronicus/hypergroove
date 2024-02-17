@@ -135,6 +135,7 @@ function FreeplayState:update(dt)
 
 			if controls:pressed('accept') then
 				PlayState.storyMode = false
+				PlayState.round = -1
 
 				local daSong = paths.formatToSongPath(
 					self.songsData[FreeplayState.curSelected]
