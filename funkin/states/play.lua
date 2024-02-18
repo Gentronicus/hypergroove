@@ -10,22 +10,24 @@ local PlayState = State:extend("PlayState")
 
 PlayState.defaultDifficulty = "normal"
 
+PlayState.skin = "metal"
+
 PlayState.controlDirs = {
 	note_left = 0,
 	note_down = 1,
 	note_up = 2,
 	note_right = 3
 }
-PlayState.ratings = {
-	{name = "sick", time = 20,        score = 500, splash = true,  breaksCombo = false, health = 0.1,  mod = 1},
-	{name = "cool", time = 45,        score = 350, splash = true,  breaksCombo = false, health = 0.08,  mod = 0.8},
-	{name = "good", time = 90,        score = 200, splash = false, breaksCombo = false, health = 0.06,  mod = 0.6},
-	{name = "bad",  time = 135,       score = 100, splash = false, breaksCombo = true, health = 0,     mod = 0.4},
-	{name = "shit", time = math.huge, score = 50,  splash = false, breaksCombo = true, health = -0.1, mod = 0.2}
-}
 PlayState.noteOutOfBoundsTime = 350
-PlayState.comboHealThreshold = 7
-PlayState.missHurtAmount = 0.2
+PlayState.ratings = {
+	{name = "sick", score = 500,  splash = true,  breaksCombo = false, health = 0.1,   mod = 1,   color = {0.50, 1.00, 1.00}, time = 20},
+	{name = "cool", score = 350,  splash = true,  breaksCombo = false, health = 0.08,  mod = 0.8, color = {1.00, 0.85, 0.00},   time = 45},
+	{name = "good", score = 200,  splash = false, breaksCombo = false, health = 0.06,  mod = 0.6, color = {0.30, 1.00, 0.00},   time = 90},
+	{name = "bad",  score = 100,  splash = false, breaksCombo = true,  health = 0,     mod = 0.4, color = {0.25, 0.25, 1.00},  time = 135},
+	{name = "shit", score = 50,   splash = false, breaksCombo = true,  health = -0.1,  mod = 0.2, color = {0.28, 0.00, 1.00},   time = PlayState.noteOutOfBoundsTime},
+	{name = "miss", score = -100, splash = false, breaksCombo = true,  health = -0.2,  mod = 0,   color = {1.00, 0.00, 0.00},    time = math.huge} -- make sure this one's time is math.huge
+}
+PlayState.comboEffectsThreshold = 7
 
 PlayState.notePosition = 0
 
@@ -95,15 +97,13 @@ function PlayState:new(storyMode, song, diff)
 		end
 	end
 
-	self.scoreFormat = "Score: %score // Combo Breaks: %misses // %accuracy% - %rating"
-	self.scoreFormatVariables = {score = 0, misses = 0, accuracy = 0, rating = 0}
+	self.scoreFormat = "Score: %score // Combo Breaks: %comboBreaks // %accuracy% - %rating"
+	self.scoreFormatVariables = {score = 0, misses = 0, comboBreaks = 0, accuracy = 0, rating = 0}
 end
 
 function PlayState:enter()
 	if PlayState.SONG == nil then PlayState.loadSong("test") end
 	local songName = paths.formatToSongPath(PlayState.SONG.song)
-
-	self.skin = "metal"
 
 	PlayState.conductor = Conductor():setSong(PlayState.SONG)
 	PlayState.conductor.onStep = bind(self, self.step)
@@ -218,8 +218,10 @@ function PlayState:enter()
 	self.score = 0
 	self.combo = 0
 	self.misses = 0
+	self.comboBreaks = 0
 	self.accuracy = 0
 	self.health = 1
+	self.lowestRating = PlayState.ratings[1]
 
 	-- for ratings
 	self.sicks = 0
@@ -297,7 +299,7 @@ function PlayState:enter()
 	self:add(self.stage.foreground)
 	self:add(self.judgeSprites)
 
-	if self.skin == "metal" then
+	if PlayState.skin == "metal" then
 		self.ratingSprite = Sprite(0, 0, paths.getImage("skins/metal/ratingDummy"))
 		self.comboLabel = Sprite(0, 0, paths.getImage("skins/metal/comboLabel"))
 		self.comboLabel.scale = {x = 0.25, y = 0.25}
@@ -315,9 +317,10 @@ function PlayState:enter()
 		self.judgeSprites.visible = false
 
 		self.judgementTimer = Timer.new()
+		self.judgementColorTimer = Timer.new()
+		self.fullComboTint = {fade = 0, fadeState = false}
 		self.judgementScale = {value = 0.25, fade = 1, dummyValue = 1}
-
-
+		self.fullComboColor = {color = {100, 100, 100}}
 	end
 
 	self.camFollow = {x = 0, y = 0}
@@ -455,7 +458,7 @@ function PlayState:enter()
 		self.scoreTxt, self.timeArcBG, self.timeArc, self.timeTxt, self.botplayTxt
 	}) do o.cameras = {self.camHUD} end
 
-	if self.skin == "metal" then self.judgeSprites.cameras = {self.camHUD} end
+	if PlayState.skin == "metal" then self.judgeSprites.cameras = {self.camHUD} end
 
 	self.lastTick = love.timer.getTime()
 
@@ -640,24 +643,51 @@ function PlayState:update(dt)
 
 	self.judgementTimer:update(dt)
 
-	self.ratingSprite.scale = {x = self.judgementScale.value, y = self.judgementScale.value * self.judgementScale.fade}
-	self.ratingSprite:updateHitbox()
-	self.ratingSprite.alpha, self.comboLabel.alpha, self.comboCountSprite.alpha = self.judgementScale.fade, self.judgementScale.fade, self.judgementScale.fade
-	-- print("JUDGMENT XPOS " .. tostring(self.ratingSprite.x) .. " YPOS " .. tostring(self.ratingSprite.y) .. " WIDTH " .. tostring(self.ratingSprite:getFrameWidth()) .. " HEIGHT " .. tostring(self.ratingSprite:getFrameHeight()) .. " SCALEX " .. tostring(self.ratingSprite.scale.x) .. " SCALEY " .. tostring(self.ratingSprite.scale.y))
-	self.comboLabel.scale = {x = 0.25, y = 0.25 * self.judgementScale.fade}
-	self.comboLabel:updateHitbox()
-	self.comboLabel.x = (self.ratingSprite.width - self.comboLabel.width) * 0.5
-	self.comboLabel.y = self.ratingSprite.height + self.ratingSprite.y
-	self.comboCountSprite:updateHitbox()
-	self.comboCountSprite.x = (self.ratingSprite.width - self.comboCountSprite.width) * 0.5
-	self.comboCountSprite.y = self.comboLabel.y + self.comboLabel.height
-	-- print("COMBOSEP XPOS " .. tostring(self.comboLabel.x) .. " YPOS " .. tostring(self.comboLabel.y) .. " WIDTH " .. tostring(self.comboLabel:getFrameWidth()) .. " HEIGHT " .. tostring(self.comboLabel:getFrameHeight()) .. " SCALEX " .. tostring(self.comboLabel.scale.x) .. " SCALEY " .. tostring(self.comboLabel.scale.y))
-	-- print(self.judgementScale.value)
+	if PlayState.skin == "metal" then
+		self.ratingSprite.scale = {x = self.judgementScale.value, y = self.judgementScale.value * self.judgementScale.fade}
+		self.ratingSprite:updateHitbox()
+		self.ratingSprite.alpha, self.comboLabel.alpha, self.comboCountSprite.alpha = self.judgementScale.fade, self.judgementScale.fade, self.judgementScale.fade
+		-- print("JUDGMENT XPOS " .. tostring(self.ratingSprite.x) .. " YPOS " .. tostring(self.ratingSprite.y) .. " WIDTH " .. tostring(self.ratingSprite:getFrameWidth()) .. " HEIGHT " .. tostring(self.ratingSprite:getFrameHeight()) .. " SCALEX " .. tostring(self.ratingSprite.scale.x) .. " SCALEY " .. tostring(self.ratingSprite.scale.y))
+		self.comboLabel.scale = {x = 0.25, y = 0.25 * self.judgementScale.fade}
+		self.comboLabel:updateHitbox()
+		self.comboLabel.x = (self.ratingSprite.width - self.comboLabel.width) * 0.5
+		self.comboLabel.y = self.ratingSprite.height + self.ratingSprite.y
+		self.comboCountSprite:updateHitbox()
+		self.comboCountSprite.x = (self.ratingSprite.width - self.comboCountSprite.width) * 0.5
+		self.comboCountSprite.y = self.comboLabel.y + self.comboLabel.height
+		-- print("COMBOSEP XPOS " .. tostring(self.comboLabel.x) .. " YPOS " .. tostring(self.comboLabel.y) .. " WIDTH " .. tostring(self.comboLabel:getFrameWidth()) .. " HEIGHT " .. tostring(self.comboLabel:getFrameHeight()) .. " SCALEX " .. tostring(self.comboLabel.scale.x) .. " SCALEY " .. tostring(self.comboLabel.scale.y))
+		-- print(self.judgementScale.value)
 
-	self.judgeSprites:updateHitbox()
-	self.judgeSprites.x = game.width * 0.75 - self.ratingSprite.width * 0.5
-	if self.middleScroll then self.judgeSprites.x = (game.width - self.judgeSprites.width) * 0.5 end
-	self.judgeSprites.y = (game.height - self.judgeSprites.height) * 0.5
+		self.judgeSprites:updateHitbox()
+		self.judgeSprites.x = game.width * 0.75 - self.ratingSprite.width * 0.5
+		if self.middleScroll then self.judgeSprites.x = (game.width - self.judgeSprites.width) * 0.5 end
+		self.judgeSprites.y = (game.height - self.judgeSprites.height) * 0.5
+
+		self.judgementColorTimer:update(PlayState.SONG.bpm / (60 * 4) * dt)
+
+		if self.comboBreaks < 1 and self.combo > PlayState.comboEffectsThreshold then
+			if self.fullComboTint.fadeState == true then
+				-- print("CHANGING COLOR TO WHITE")
+				self.fullComboTint.fadeState = nil
+				self.judgementColorTimer:tween(0.333, self.fullComboColor, {color = {1, 1, 1}}, 'linear', function()
+					-- print("FINISHED CHANGING COLOR TO WHITE")
+					-- print("COLOR OF SPRITES IS NOW " .. self.comboLabel.color[1] .. ", " .. self.comboLabel.color[2] .. ", " .. self.comboLabel.color[3] .. ", ")
+					self.fullComboTint.fadeState = false
+				end)
+			end
+			if self.fullComboTint.fadeState == false then
+				-- print("CHANGING COLOR TO COMBO COLOR")
+				self.fullComboTint.fadeState = nil
+				self.judgementColorTimer:tween(0.333, self.fullComboColor, {color = PlayState.ratings[ratingIndex(self.lowestRating)].color}, 'linear', function()
+					self.fullComboTint.fadeState = true
+					-- print("FINISHED CHANGING COLOR TO COMBO COLOR")
+					-- print("COLOR OF SPRITES IS NOW " .. self.comboLabel.color[1] .. ", " .. self.comboLabel.color[2] .. ", " .. self.comboLabel.color[3] .. ", ")
+				end)
+			end
+		end
+
+		self.comboLabel.color, self.comboCountSprite.color = self.fullComboColor.color, self.fullComboColor.color
+	end
 
 	-- time arc / text
 	local songTime = PlayState.conductor.time / 1000
@@ -810,8 +840,12 @@ function PlayState:update(dt)
 
 				if self.combo > 0 then self.combo = 0 end
 				self.combo = self.combo - 1
-				self.score = self.score - 100
+				self.score = self.score + PlayState.ratings[#PlayState.ratings].score
 				self.misses = self.misses + 1
+				self.comboBreaks = self.comboBreaks + 1
+				self.lowestRating = PlayState.ratings[#PlayState.ratings]
+				Timer:cancelTweensOf(self.judgementColorTimer)
+				self.fullComboColor.color = {1, 1, 1}
 
 				self.totalPlayed = self.totalPlayed + 1
 				self:recalculateRating()
@@ -824,7 +858,7 @@ function PlayState:update(dt)
 
 				if self.health < 0 then self.health = 0 end
 
-				self.health = self.health - PlayState.missHurtAmount
+				self.health = self.health + PlayState.ratings[#PlayState.ratings].health
 				self.healthBar:setValue(self.health)
 
 				self.boyfriend:sing(n.data, "miss")
@@ -833,7 +867,7 @@ function PlayState:update(dt)
 					self.gf:playAnim('sad', true)
 					self.gf.lastHit = PlayState.conductor.time
 				end
-				self:popUpScore()
+				self:popUpScore(PlayState.ratings[#PlayState.ratings])
 			end
 
 			self:removeNote(n)
@@ -1180,8 +1214,7 @@ function PlayState:goodNoteHit(n)
 
 			if not n.isSustain then
 				if n.mustPress then
-					local diff, rating = math.abs(n.time - PlayState.conductor.time),
-						PlayState.ratings[#PlayState.ratings - 1]
+					local diff, rating = math.abs(n.time - PlayState.conductor.time), PlayState.ratings[#PlayState.ratings].time
 					for _, r in pairs(PlayState.ratings) do
 						if diff <= r.time then
 							rating = r
@@ -1191,13 +1224,20 @@ function PlayState:goodNoteHit(n)
 
 					if not n.ignoreNote then
 						if self.combo < 0 then self.combo = 0 end
-						if not rating.breaksCombo then self.combo = self.combo + 1 else self.combo = 0 end
+						if not rating.breaksCombo then
+							self.combo = self.combo + 1
+						else
+							self.combo = 0
+							self.comboBreaks = self.comboBreaks + 1
+						end
 						self.score = self.score + rating.score
 
 						if self.health > 2 then self.health = 2 end
 
-						if self.combo > PlayState.comboHealThreshold then self.health = self.health + rating.health end
+						if self.combo > PlayState.comboEffectsThreshold then self.health = self.health + rating.health end
 						self.healthBar:setValue(self.health)
+
+						if n.breaksCombo == true then self.comboBreaks = self.comboBreaks + 1 end
 					end
 
 					if ClientPrefs.data.noteSplash and rating.splash then
@@ -1205,11 +1245,17 @@ function PlayState:goodNoteHit(n)
 						splash.x, splash.y = receptor.x, receptor.y
 						splash:setup(n.data)
 					end
-					self:popUpScore(rating.name)
+
+					self:popUpScore(rating)
 
 					self.totalHit = self.totalHit + rating.mod
 					self.totalPlayed = self.totalPlayed + 1
-					self:recalculateRating(rating.name)
+					if ratingIndex(self.lowestRating) < ratingIndex(rating) then
+						self.lowestRating = rating
+						Timer:cancelTweensOf(self.judgementColorTimer)
+					end
+					-- print(ratingIndex(self.lowestRating) .. ", " .. ratingIndex(rating)) 
+					self:recalculateRating(rating)
 				end
 
 				self:removeNote(n)
@@ -1378,10 +1424,7 @@ function PlayState:section(s)
 	self.scripts:call("postSection")
 end
 
-function PlayState:popUpScore(rating)
-
-	if rating == nil then rating = "miss" end
-
+function PlayState:popUpScore(rating) 
 	local comboStr = string.format(math.abs(self.combo))
 	if self.combo >=10000 then combostr = "9999" end
 
@@ -1397,12 +1440,12 @@ function PlayState:popUpScore(rating)
 	self.comboLabel.color = {100,100,100}
 	self.comboCountSprite.color = {100,100,100}
 	self.judgementTimer:clear()
-	self.ratingSprite:loadTexture(paths.getImage("skins/" .. "metal/" .. "rating" .. rating:gsub("^%l", string.upper)))
+	self.ratingSprite:loadTexture(paths.getImage("skins/" .. "metal/" .. "rating" .. rating.name:gsub("^%l", string.upper)))
 	self.ratingSprite:updateHitbox()
 
 	self.judgementScale = {value = 0.375, fade = 1, dummyValue = 1}
 	self.judgementTimer:tween(0.08, self.judgementScale, {value = 0.25}, 'linear', function()
-		self.judgementTimer:tween(0.92, self.judgementScale, {dummyValue = 2}, 'linear', function()
+		self.judgementTimer:tween(1.42, self.judgementScale, {dummyValue = 2}, 'linear', function()
 			self.judgementTimer:tween(0.25, self.judgementScale, {fade = 0.01}, 'linear', function()
 				self.judgeSprites.visible = false
 			end)
@@ -1438,14 +1481,16 @@ function PlayState:popUpScore(rating)
 	self.comboCountSprite:updateHitbox()
 	-- print(self.comboCountSprite.x .. ", " .. self.comboCountSprite.y)
 
-	if self.combo <= -5 or self.combo >= PlayState.comboHealThreshold then
+	if self.combo <= -5 or self.combo >= PlayState.comboEffectsThreshold then
 		self.comboLabel.visible = true
 		self.comboCountSprite.visible = true
 	end
 
 	if self.combo <= -5 then
-		self.comboLabel.color = {100,0,0}
-		self.comboCountSprite.color = {100,0,0}
+		-- print("PLAYER HAS MISS COMBO, SETTING RATING COLORS TO" .. PlayState.ratings[#PlayState.ratings].color[1] .. ", " ..  PlayState.ratings[#PlayState.ratings].color[2] .. ", " ..  PlayState.ratings[#PlayState.ratings].color[3] .. ", ")
+		self.comboLabel.color = PlayState.ratings[#PlayState.ratings].color
+		self.comboCountSprite.color = PlayState.ratings[#PlayState.ratings].color
+		-- print("COLOR OF SPRITES IS NOW " .. self.comboLabel.color[1] .. ", " .. self.comboLabel.color[2] .. ", " .. self.comboLabel.color[3] .. ", ")
 	end
 
 end
@@ -1492,8 +1537,8 @@ end
 local ratingFormat, noRating = "(%s) %s", "?"
 function PlayState:recalculateRating(rating)
 	if rating then
-		rating = rating .. "s"
-		if self[rating] then self[rating] = self[rating] + 1 end
+		ratingName = rating.name .. "s"
+		if self[ratingName] then self[ratingName] = self[ratingName] + 1 end
 	end
 
 	local ratingStr = noRating
@@ -1520,25 +1565,14 @@ function PlayState:recalculateRating(rating)
 		end
 		self.accuracy = accuracy
 
-		local fc
-		if self.misses < 1 then
-			if self.bads > 0 or self.shits > 0 then
-				fc = "FC"
-			elseif self.goods > 0 then
-				fc = "GFC"
-			elseif self.sicks > 0 then
-				fc = "SFC"
-			else
-				fc = "FC"
-			end
+		if self.comboBreaks < 1 then
+			self.rating = "Full " .. self.lowestRating.name:gsub("^%l", string.upper) .. " Combo"
 		else
-			fc = self.misses >= 10 and "Clear" or "SDCB"
+			self.rating = self.comboBreaks >= 10 and "Clear" or "SDCB"
 		end
 
-		ratingStr = ratingFormat:format(fc, class)
+		ratingStr = ratingFormat:format(self.rating, class)
 	end
-
-	self.rating = ratingStr
 
 	local vars = self.scoreFormatVariables
 	if not vars then
@@ -1549,6 +1583,7 @@ function PlayState:recalculateRating(rating)
 	vars.misses = math.floor(self.misses)
 	vars.accuracy = math.truncate(self.accuracy * 100, 2)
 	vars.rating = ratingStr
+	vars.comboBreaks = self.comboBreaks
 
 	self.scoreTxt.content = self.scoreFormat:gsub("%%(%w+)", vars)
 	self.scoreTxt:updateHitbox()
@@ -1605,6 +1640,15 @@ function PlayState:loadGfWithStage(song, stage)
 		})
 	end
 	return gfVersion
+end
+
+function ratingIndex(rating)
+	for i, v in ipairs(PlayState.ratings) do
+		if v == rating then
+			return i
+		end
+	end
+	return #PlayState.ratings
 end
 
 function PlayState:leave()
