@@ -1457,8 +1457,7 @@ function PlayState:popUpScore(rating)
 	self.comboCountCanvas:renderTo(function()	
 		love.graphics.clear()
 	end)
-
-	-- find width of combo number sprites 
+	
 	for i = 1, string.len(comboStr) do
 		local currentDigit = paths.getImage("skins/" .. "metal/" .. "digit" .. string.sub(comboStr, i, i))
 		digitX = digitX + currentDigit:getWidth()

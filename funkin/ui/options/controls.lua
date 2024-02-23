@@ -17,6 +17,14 @@ local data = {
 	{"back",         "Back"},
 	{"pause",        "Pause"},
 
+	{"WORLD"},
+	{"world_up",    "Forwards"},
+	{"world_down",    "Backwards"},
+	{"world_left",    "Left"},
+	{"world_right",    "Right"},
+	{"jump",    "Jump"},
+	{"interact",    "Interact"},
+
 	{"MISCELLANEOUS"},
 	{"fullscreen",   "Fullscreen"},
 	{"pick_mods",    "Mods"},

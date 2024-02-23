@@ -49,6 +49,13 @@ ClientPrefs.controls = {
 	fullscreen = {"key:f11"},
 	pick_mods = {"key:6"},
 
+	world_up = {"key:w", "key:up"},
+	world_left = {"key:a", "key:left"},
+	world_right = {"key:d", "key:right"},
+	world_down = {"key:s", "key:down"},
+	jump = {"key:space", "key:rshift"},
+	interact = {"key:e", "key:lshift"},
+
 	debug_1 = {"key:7"},
 	debug_2 = {"key:8"},
 }

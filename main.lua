@@ -18,6 +18,8 @@ end
 paths = require "funkin.paths"
 util = require "funkin.util"
 
+Menori = require "menori"
+
 ClientPrefs = require "funkin.backend.clientprefs"
 Conductor = require "funkin.backend.conductor"
 Discord = require "funkin.backend.discord"
@@ -50,6 +52,7 @@ ModsState = require "funkin.states.mods"
 StoryMenuState = require "funkin.states.storymenu"
 FreeplayState = require "funkin.states.freeplay"
 PlayState = require "funkin.states.play"
+WorldState = require "funkin.states.world"
 
 EditorMenu = require "funkin.ui.editor.editormenu"
 
