@@ -20,7 +20,7 @@ PlayState.controlDirs = {
 }
 PlayState.noteOutOfBoundsTime = 350
 PlayState.ratings = {
-	{name = "sick", score = 500,  splash = true,  breaksCombo = false, health = 0.1,   mod = 1,   color = {0.50, 1.00, 1.00}, time = 20},
+	{name = "sick", score = 500,  splash = true,  breaksCombo = false, health = 0.1,   mod = 1,   color = {0.50, 1.00, 1.00}, time = 25},
 	{name = "cool", score = 350,  splash = true,  breaksCombo = false, health = 0.08,  mod = 0.8, color = {1.00, 0.85, 0.00},   time = 45},
 	{name = "good", score = 200,  splash = false, breaksCombo = false, health = 0.06,  mod = 0.6, color = {0.30, 1.00, 0.00},   time = 90},
 	{name = "bad",  score = 100,  splash = false, breaksCombo = true,  health = 0,     mod = 0.4, color = {0.25, 0.25, 1.00},  time = 135},
@@ -1457,7 +1457,7 @@ function PlayState:popUpScore(rating)
 	self.comboCountCanvas:renderTo(function()	
 		love.graphics.clear()
 	end)
-	
+
 	for i = 1, string.len(comboStr) do
 		local currentDigit = paths.getImage("skins/" .. "metal/" .. "digit" .. string.sub(comboStr, i, i))
 		digitX = digitX + currentDigit:getWidth()

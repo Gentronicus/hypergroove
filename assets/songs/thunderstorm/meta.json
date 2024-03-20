@@ -1,0 +1,9 @@
+{
+    "name": "Thunderstorm",
+    "bpm": 190.0,
+    "icon": "dad",
+    "color": "#CC0000",
+    "difficulties": [
+        "Mania"
+    ]
+}

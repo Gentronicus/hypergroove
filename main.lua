@@ -18,7 +18,7 @@ end
 paths = require "funkin.paths"
 util = require "funkin.util"
 
-Menori = require "menori"
+dream = require "3DreamEngine"
 
 ClientPrefs = require "funkin.backend.clientprefs"
 Conductor = require "funkin.backend.conductor"
