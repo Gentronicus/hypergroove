@@ -1,4 +1,4 @@
-# This repository is no longer 
+# This repository is no longer in use or maintained
 With priorities shifted and plans and motivations changed, MY AWESOME FRIDAY NIGHT / Hypergroove has become a much different and non-Friday-Night-Funkin related project. This repository will remain unused and unchanged for the forseeable future.
 The original README is printed below for archival purposes.
 
