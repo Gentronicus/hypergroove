@@ -1,3 +1,7 @@
+# This repository is no longer 
+With priorities shifted and plans and motivations changed, MY AWESOME FRIDAY NIGHT / Hypergroove has become a much different and non-Friday-Night-Funkin related project. This repository will remain unused and unchanged for the forseeable future.
+The original README is printed below for archival purposes.
+
 # MY AWESOME FRIDAY NIGHT
 My awesome [Friday Night Funkin'](https://github.com/FunkinCrew/Funkin) project based on the [FNF-LOVE engine](https://github.com/Stilic/FNF-LOVE) feauring reworked mechanics and original content.
 MY AWESOME FRIDAY NIGHT is incomplete in its current state, and everything is subject to change.
